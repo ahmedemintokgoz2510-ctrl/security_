@@ -11,25 +11,65 @@ jobs:
     name: Build Android APK
     runs-on: ubuntu-latest
     timeout-minutes: 30
-
+    
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-
+        with:
+          fetch-depth: 0
+          
       - name: Set up JDK 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           java-version: '17'
           distribution: 'temurin'
-
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: '8.9'
-
+          cache: gradle
+          
+      - name: Verify Project Structure
+        run: |
+          echo "=== Root contents ==="
+          ls -la
+          echo "=== app/ contents ==="
+          ls -la app/
+          echo "=== gradle/ contents ==="
+          ls -la gradle/
+          
+      - name: Configure Plugin Repositories
+        run: |
+          cat > settings.gradle.kts << 'EOF'
+          pluginManagement {
+              repositories {
+                  google()
+                  gradlePluginPortal()
+                  mavenCentral()
+              }
+          }
+          dependencyResolutionManagement {
+              repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+              repositories {
+                  google()
+                  mavenCentral()
+              }
+          }
+          rootProject.name = "SecretVault"
+          include(":app")
+          EOF
+          
+      - name: Generate Gradle Wrapper
+        run: |
+          gradle wrapper --gradle-version 8.9 --distribution-type bin
+          
+      - name: Make gradlew executable
+        run: chmod +x ./gradlew
+          
       - name: Build Debug APK
-        run: gradle :app:assembleDebug --stacktrace
-
+        run: |
+          ./gradlew :app:assembleDebug --no-daemon --stacktrace
+          
+      - name: Verify APK Output
+        run: |
+          ls -la app/build/outputs/apk/debug/
+          
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:

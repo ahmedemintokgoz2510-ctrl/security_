@@ -5,9 +5,11 @@ import android.content.Intent
 import android.os.AsyncTask
 import android.os.Handler
 import android.os.Looper
+import android.os.ParcelFileDescriptor
 import android.util.Log
 import java.net.URL
 import java.net.HttpURLConnection
+import java.net.NetworkInterface
 
 class VpnAutoService : VpnService() {
 
@@ -33,7 +35,7 @@ class VpnAutoService : VpnService() {
 
                 for (source in proxySources) {
                     val fetched = fetchUrl(source)
-                    if (fetched != null && fetched.isNotEmpty()) {
+                    if (!fetched.isNullOrEmpty()) {
                         val validProxies = parseProxies(fetched)
                         if (validProxies.isNotEmpty()) {
                             targetAddress = validProxies[0].address
@@ -56,7 +58,7 @@ class VpnAutoService : VpnService() {
                 connection.requestMethod = "GET"
                 connection.connectTimeout = 10000
                 connection.readTimeout = 10000
-                connection.connectInput()
+                connection.connect()
                 return connection.inputStream.bufferedReader().readText()
             } catch (e: Exception) {
                 Log.w(TAG, "Failed to fetch $urlString", e)
@@ -66,9 +68,9 @@ class VpnAutoService : VpnService() {
 
         private fun parseProxies(proxyText: String): List<ProxyInfo> {
             val results = mutableListOf<ProxyInfo>()
-            val lines = proxyText.split("\\r?\\n")
+            val lines = proxyText.split(Regex("\\r?\\n"))
             for (line in lines) {
-                line.trim().ifEmpty { continue }
+                if (line.trim().isEmpty()) continue
                 val parts = line.split(":")
                 if (parts.size >= 2) {
                     try {
@@ -91,35 +93,37 @@ class VpnAutoService : VpnService() {
 
     private fun establishVpnTunnel() {
         targetAddress?.let { exitAddress ->
-            val builder = VpnService.Builder()
-            builder.addAddress(exitAddress, 24)
-            builder.addRoute("0.0.0.0", 0)
+            try {
+                val builder = VpnService.Builder()
+                builder.addAddress(exitAddress, 24)
+                builder.addRoute("0.0.0.0", 0)
 
-            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
-                builder.addDnsServer(exitAddress)
-            }
-
-            builder.establish(
-                object : VpnService.EstablishCallback() {
-                    override fun onError(error: Int) {
-                        Log.e(TAG, "VPN establishment error: $error")
-                        Handler(Looper.getMainLooper()).postDelayed({
-                            FetchProxyTask().execute()
-                        }, 5000)
-                    }
-
-                    override fun onEstablished(iface: android.net.NetworkInterface?) {
-                        Log.d(TAG, "VPN tunnel established on interface: ${iface?.name}")
-                        vpnEstablished = true
-                    }
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+                    builder.addDnsServer(exitAddress)
                 }
-            )
+
+                val pfd: ParcelFileDescriptor? = builder.establish()
+                if (pfd != null) {
+                    Log.d(TAG, "VPN tunnel established successfully")
+                    vpnEstablished = true
+                } else {
+                    handleEstablishmentError()
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "VPN establishment exception", e)
+                handleEstablishmentError()
+            }
         } ?: run {
             Log.w(TAG, "Cannot establish VPN: no exit node address fetched")
-            Handler(Looper.getMainLooper()).postDelayed({
-                FetchProxyTask().execute()
-            }, 5000)
+            handleEstablishmentError()
         }
+    }
+
+    private fun handleEstablishmentError() {
+        Log.e(TAG, "VPN establishment failed/error")
+        Handler(Looper.getMainLooper()).postDelayed({
+            FetchProxyTask().execute()
+        }, 5000)
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {

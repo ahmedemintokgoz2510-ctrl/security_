@@ -7,6 +7,7 @@ import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.Bundle
 import android.os.Handler
@@ -30,7 +31,6 @@ class IsolationService : Service() {
         const val RESULT_SUCCESS = "success"
         const val RESULT_ERROR = "error"
 
-        // Overloaded enqueue methods with default parameter to support SecretVaultApplication calls
         fun enqueue(context: Context, intent: Intent = Intent(context, IsolationService::class.java).apply { action = ACTION_LAUNCH_SANDBOXED }) {
             ContextCompat.startForegroundService(context, intent)
         }
@@ -130,6 +130,12 @@ class IsolationService : Service() {
             .setContentIntent(contentIntent)
             .build()
 
-        startForeground(NOTIF_ID_SANDBOX, notification)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            startForeground(NOTIF_ID_SANDBOX, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
+        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            startForeground(NOTIF_ID_SANDBOX, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
+        } else {
+            startForeground(NOTIF_ID_SANDBOX, notification)
+        }
     }
 }

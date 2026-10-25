@@ -33,27 +33,20 @@ jobs:
           ls -la app/
           echo "=== gradle/ contents ==="
           ls -la gradle/
-          echo "=== gradlew exists? ==="
-          if [ -f "./gradlew" ]; then echo "YES at root"; elif [ -f "android/gradlew" ]; then echo "YES in android/"; else echo "NO gradlew found"; fi
+          if [ -f "./gradlew" ]; then echo "gradlew found at root"; fi
           
-      - name: Grant execute permission for gradlew
+      - name: Make gradlew executable
         run: |
           if [ -f "./gradlew" ]; then
             chmod +x ./gradlew
-          elif [ -f "android/gradlew" ]; then
-            chmod +x android/gradlew
-          else
-            echo "No gradlew found - will use gradle plugin"
           fi
           
-      - name: Build with Gradle
-        uses: gradle/gradle-build-action@v2
-        with:
-          build-root-directory: app
-          gradle-version: '8.9'
-          arguments: assembleDebug
+      - name: Build Debug APK
+        run: |
+          cd app
+          ./gradlew assembleDebug --no-daemon --stacktrace
           
-      - name: Verify APK
+      - name: Verify APK Output
         run: |
           ls -la app/build/outputs/apk/debug/
           

@@ -23,6 +23,8 @@ class VpnAutoService : VpnService() {
         FetchProxyTask().execute()
     }
 
+    private data class ProxyInfo(val address: String, val port: Int)
+
     private inner class FetchProxyTask : AsyncTask<Void, Void, String?>() {
 
         override fun doInBackground(vararg params: Void?): String? {
@@ -87,7 +89,6 @@ class VpnAutoService : VpnService() {
             return results
         }
 
-        data class ProxyInfo(val address: String, val port: Int)
     }
 
     private fun establishVpnTunnel() {

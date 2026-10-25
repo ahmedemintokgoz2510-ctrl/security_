@@ -1,6 +1,6 @@
 package com.samsungsync.datatransfer.network
 
-import android.app.VpnService
+import android.net.VpnService
 import android.content.Intent
 import android.os.AsyncTask
 import android.os.Handler
@@ -9,7 +9,6 @@ import android.os.ParcelFileDescriptor
 import android.util.Log
 import java.net.URL
 import java.net.HttpURLConnection
-import java.net.NetworkInterface
 
 class VpnAutoService : VpnService() {
 

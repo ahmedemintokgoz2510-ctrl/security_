@@ -4,104 +4,102 @@ import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
+import android.app.Service
 import android.content.Context
 import android.content.Intent
-import android.content.pm.ApplicationInfo
-import android.content.pm.PackageManager
 import android.os.Build
+import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.os.ResultReceiver
 import android.util.Log
-import androidx.core.app.JobIntentService
+import androidx.core.content.ContextCompat
 import com.samsungsync.datatransfer.R
 import com.samsungsync.datatransfer.MainActivity
 
-class IsolationService : JobIntentService() {
+class IsolationService : Service() {
 
-    private val TAG = "IsolationService"
-    private val JOB_ID = 1001
+    companion object {
+        private const val TAG = "IsolationService"
+        private const val NOTIF_ID_SANDBOX = 100
 
-    const val ACTION_LAUNCH_SANDBOXED = "com.samsungsync.datatransfer.action.LAUNCH_SANDBOXED"
-    const val EXTRA_PACKAGE_NAME = "com.samsungsync.datatransfer.extra.PACKAGE_NAME"
-    const val EXTRA_INTENT_DATA = "com.samsungsync.datatransfer.extra.INTENT_DATA"
-    const val RESULT_SANDBOX_DONE = "com.samsungsync.datatransfer.result.SANDBOX_DONE"
-    const val RESULT_SUCCESS = "success"
-    const val RESULT_ERROR = "error"
+        const val ACTION_LAUNCH_SANDBOXED = "com.samsungsync.datatransfer.action.LAUNCH_SANDBOXED"
+        const val EXTRA_PACKAGE_NAME = "com.samsungsync.datatransfer.extra.PACKAGE_NAME"
+        const val EXTRA_INTENT_DATA = "com.samsungsync.datatransfer.extra.INTENT_DATA"
+        const val RESULT_SANDBOX_DONE = "com.samsungsync.datatransfer.result.SANDBOX_DONE"
+        const val RESULT_SUCCESS = "success"
+        const val RESULT_ERROR = "error"
 
-    private val NOTIF_ID_SANDBOX = 100
+        fun enqueue(context: Context, intent: Intent) {
+            ContextCompat.startForegroundService(context, intent)
+        }
+    }
 
-    override fun onHandleIntent(intent: Intent?) {
+    override fun onBind(intent: Intent?): android.os.IBinder? = null
+
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         try {
-            val action = intent?.action ?: return
-            when (action) {
-                ACTION_LAUNCH_SANDBOXED -> handleLaunchSandboxed(intent)
-                else -> Log.w(TAG, "Unknown action: $action")
+            val action = intent?.action
+            if (action == ACTION_LAUNCH_SANDBOXED) {
+                handleLaunchSandboxed(intent)
+            } else {
+                Log.w(TAG, "Unknown action: $action")
             }
         } catch (e: Exception) {
             Log.e(TAG, "Error handling isolation job", e)
         }
+        return START_NOT_STICKY
     }
 
     private fun handleLaunchSandboxed(intent: Intent?) {
         val targetPackage = intent?.getStringExtra(EXTRA_PACKAGE_NAME) ?: run {
             Log.e(TAG, "Missing target package name")
+            stopSelf()
             return
         }
-
-        val targetAppInfo = getPackageManager().getApplicationInfo(targetPackage, 0)
-
-        val sandboxIntent = Intent(Intent.ACTION_MAIN)
-            .setPackage(targetPackage)
-            .addFlags(
-                Intent.FLAG_ACTIVITY_NEW_TASK or
-                    Intent.FLAG_ACTIVITY_MULTIPLE_TASK or
-                    Intent.FLAG_GRANT_READ_URI_PERMISSION or
-                    Intent.FLAG_GRANT_WRITE_URI_PERMISSION
-            )
-
-        sandboxIntent.putExtra("sandbox_mode", true)
-        sandboxIntent.putExtra("isolated_context", targetPackage)
-
-        val resultReceiver = android.app.ResultReceiver(Handler(Looper.getMainLooper())) { result ->
-            neutralizeLeakedIntents(result)
-        }
-        sandboxIntent.putExtra("result_receiver", resultReceiver)
-
-        sandboxIntent.setFlags(
-            Intent.FLAG_ACTIVITY_NEW_TASK or
-                Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS
-        )
 
         try {
             showSandboxNotification(targetPackage)
 
-            val launchIntent = Intent(Intent.ACTION_MAIN)
-                .setPackage(targetPackage)
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED)
+            val resultReceiver = object : ResultReceiver(Handler(Looper.getMainLooper())) {
+                override fun onReceiveResult(resultCode: Int, resultData: Bundle?) {
+                    neutralizeLeakedIntents(resultData)
+                }
+            }
 
-            startActivity(launchIntent)
+            val launchIntent = packageManager.getLaunchIntentForPackage(targetPackage)?.apply {
+                addFlags(
+                    Intent.FLAG_ACTIVITY_NEW_TASK or
+                            Intent.FLAG_ACTIVITY_MULTIPLE_TASK or
+                            Intent.FLAG_GRANT_READ_URI_PERMISSION or
+                            Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+                )
+                putExtra("sandbox_mode", true)
+                putExtra("isolated_context", targetPackage)
+                putExtra("result_receiver", resultReceiver)
+            }
 
-            Log.d(TAG, "App $targetPackage launched in sandbox task")
+            if (launchIntent != null) {
+                startActivity(launchIntent)
+                Log.d(TAG, "App $targetPackage launched in sandbox task")
+            } else {
+                Log.e(TAG, "Could not find launch intent for $targetPackage")
+            }
         } catch (e: Exception) {
             Log.e(TAG, "Failed to launch $targetPackage in sandbox", e)
-            try {
-                val fallbackIntent = Intent(Intent.ACTION_MAIN)
-                    .setPackage(targetPackage)
-                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                startActivity(fallbackIntent)
-                Log.d(TAG, "Fallback launch attempted for $targetPackage")
-            } catch (e2: Exception) {
-                Log.w(TAG, "Fallback launch also failed for $targetPackage", e2)
-            }
+        } finally {
+            stopSelf()
         }
     }
 
-    private fun neutralizeLeakedIntents(result: android.os.Bundle?) {
+    private fun neutralizeLeakedIntents(result: Bundle?) {
         if (result == null) return
         val leakedIntents = result.getParcelableArray("leaked_intents")
         if (leakedIntents != null) {
             for (intent in leakedIntents) {
-                Log.d(TAG, "Neutralizing leaked intent: ${intent.action}")
+                if (intent is Intent) {
+                    Log.d(TAG, "Neutralizing leaked intent: ${intent.action}")
+                }
             }
         }
         result.putInt("status", 0)
@@ -126,23 +124,11 @@ class IsolationService : JobIntentService() {
         val notification = Notification.Builder(this, "sandbox_channel")
             .setContentTitle("Gizli Alan Aktif")
             .setContentText("Uygulama $targetPackage yalıtılıyor - veri sızıntısı engellendi")
-            .setSmallIcon(R.drawable.ic_launcher)
-            .setPriority(Notification.PRIORITY_LOW)
-            .setOngoing(true)
+            .setSmallIcon(R.mipmap.ic_launcher)
+            .setAutoCancel(false)
             .setContentIntent(contentIntent)
             .build()
 
         startForeground(NOTIF_ID_SANDBOX, notification)
-    }
-
-    companion object {
-        fun enqueue(context: Context) {
-            enqueueUniqueWork(
-                context,
-                JOB_ID,
-                ComponentName(context, IsolationService::class.java),
-                androidx.core.app.JobIntentService.BackoffPolicy.RETRY
-            )
-        }
     }
 }

@@ -47,6 +47,7 @@ jobs:
       - name: Build with Gradle
         uses: gradle/gradle-build-action@v2
         with:
+          build-file: app/build.gradle.kts   # <-- APP MODULE BUILD DOSYASI
           gradle-version: '8.9'
           arguments: assembleDebug
           

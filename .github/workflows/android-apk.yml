@@ -8,7 +8,9 @@ on:
 
 jobs:
   build:
+    name: Build Android APK
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     
     steps:
       - name: Checkout repository
@@ -16,7 +18,7 @@ jobs:
         with:
           fetch-depth: 0
           
-      - name: Set up JDK 17 (v5 - güncel ve stabilize)
+      - name: Set up JDK 17
         uses: actions/setup-java@v5
         with:
           java-version: '17'
@@ -32,7 +34,7 @@ jobs:
           echo "=== gradle/ contents ==="
           ls -la gradle/
           echo "=== gradlew exists? ==="
-          if [ -f "./gradlew" ]; then echo "YES at root"; elif [ -f "android/gradlew" ]; then echo "YES in android/"; else echo "NO gradlew found - will use plugin only"; fi
+          if [ -f "./gradlew" ]; then echo "YES at root"; elif [ -f "android/gradlew" ]; then echo "YES in android/"; else echo "NO gradlew found"; fi
           
       - name: Grant execute permission for gradlew
         run: |
@@ -41,18 +43,23 @@ jobs:
           elif [ -f "android/gradlew" ]; then
             chmod +x android/gradlew
           else
-            echo "No gradlew found - will use gradle plugin without wrapper"
+            echo "No gradlew found - will use gradle plugin"
           fi
           
       - name: Build with Gradle
         uses: gradle/gradle-build-action@v2
         with:
-          build-root-directory: app   # <-- DOĞRU PARAMETRE: build-root-directory
+          build-root-directory: app
           gradle-version: '8.9'
           arguments: assembleDebug
+          
+      - name: Verify APK
+        run: |
+          ls -la app/build/outputs/apk/debug/
           
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: debug-apk
           path: app/build/outputs/apk/debug/*.apk
+          retention-days: 7

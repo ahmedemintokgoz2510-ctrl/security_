@@ -30,15 +30,8 @@ class IsolationService : Service() {
         const val RESULT_SUCCESS = "success"
         const val RESULT_ERROR = "error"
 
-        // SecretVaultApplication uyumluluğu için aşırı yüklenmiş (overloaded) enqueue metotları:
-        fun enqueue(context: Context) {
-            val intent = Intent(context, IsolationService::class.java).apply {
-                action = ACTION_LAUNCH_SANDBOXED
-            }
-            ContextCompat.startForegroundService(context, intent)
-        }
-
-        fun enqueue(context: Context, intent: Intent) {
+        // Overloaded enqueue methods with default parameter to support SecretVaultApplication calls
+        fun enqueue(context: Context, intent: Intent = Intent(context, IsolationService::class.java).apply { action = ACTION_LAUNCH_SANDBOXED }) {
             ContextCompat.startForegroundService(context, intent)
         }
     }

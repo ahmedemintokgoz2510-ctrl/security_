@@ -94,7 +94,7 @@ class VpnAutoService : VpnService() {
         targetAddress?.let { exitAddress ->
             try {
                 // FIXED: VpnService.Builder takes NO arguments
-                val builder = VpnService.Builder()
+                val builder = Builder()
                 builder.addAddress(exitAddress, 24)
                 builder.addRoute("0.0.0.0", 0)
 

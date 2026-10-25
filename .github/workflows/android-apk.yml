@@ -33,7 +33,6 @@ jobs:
           ls -la app/
           echo "=== gradle/ contents ==="
           ls -la gradle/
-          if [ -f "./gradlew" ]; then echo "gradlew found at root"; fi
           
       - name: Make gradlew executable
         run: |
@@ -43,8 +42,7 @@ jobs:
           
       - name: Build Debug APK
         run: |
-          cd app
-          ./gradlew assembleDebug --no-daemon --stacktrace
+          ./gradlew :app:assembleDebug --no-daemon --stacktrace
           
       - name: Verify APK Output
         run: |

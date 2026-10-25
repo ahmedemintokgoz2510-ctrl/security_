@@ -25,46 +25,26 @@ jobs:
           distribution: 'temurin'
           cache: gradle
           
-      - name: Verify Project Structure
-        run: |
-          echo "=== Root contents ==="
-          ls -la
-          echo "=== app/ contents ==="
-          ls -la app/
-          echo "=== gradle/ contents ==="
-          ls -la gradle/
-          
-      - name: Configure Plugin Repositories (settings.gradle.kts)
-        run: |
-          cat > settings.gradle.kts << 'EOF'
-          pluginManagement {
-              repositories {
-                  google()
-                  gradlePluginPortal()
-                  mavenCentral()
-              }
-          }
-          dependencyResolutionManagement {
-              repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
-              repositories {
-                  google()
-                  mavenCentral()
-              }
-          }
-          rootProject.name = "SecretVault"
-          include(":app")
-          EOF
-          
-      - name: Generate Gradle Wrapper
-        run: |
-          gradle wrapper --gradle-version 8.9 --distribution-type bin
-          
-      - name: Make gradlew executable
-        run: chmod +x ./gradlew
-          
       - name: Build Debug APK
-        run: |
-          ./gradlew :app:assembleDebug --no-daemon --stacktrace
+        uses: gradle/gradle-build-action@v2
+        with:
+          build-root-directory: .
+          gradle-version: '8.9'
+          arguments: :app:assembleDebug
+          init-script: |
+            initscript {
+              repositories {
+                google()
+                gradlePluginPortal()
+                mavenCentral()
+              }
+            }
+            allprojects {
+              repositories {
+                google()
+                mavenCentral()
+              }
+            }
           
       - name: Verify APK Output
         run: |

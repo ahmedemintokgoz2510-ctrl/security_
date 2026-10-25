@@ -93,8 +93,8 @@ class VpnAutoService : VpnService() {
     private fun establishVpnTunnel() {
         targetAddress?.let { exitAddress ->
             try {
-                // Fully qualified Builder instantiation to avoid compiler context mismatch
-                val builder: VpnService.Builder = android.net.VpnService.Builder(this)
+                // FIXED: VpnService.Builder takes NO arguments
+                val builder = VpnService.Builder()
                 builder.addAddress(exitAddress, 24)
                 builder.addRoute("0.0.0.0", 0)
 

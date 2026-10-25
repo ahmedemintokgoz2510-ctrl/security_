@@ -31,19 +31,12 @@ jobs:
           ls -la
           echo "=== app/ contents ==="
           ls -la app/
-          echo "=== gradle/wrapper/ contents ==="
-          ls -la gradle/wrapper/
-          
-      - name: Generate Gradle Wrapper
-        run: |
-          gradle wrapper --gradle-version 8.9 --distribution-type bin
-          
-      - name: Make gradlew executable
-        run: chmod +x ./gradlew
+          echo "=== gradle/ contents ==="
+          ls -la gradle/
           
       - name: Build Debug APK
         run: |
-          ./gradlew :app:assembleDebug --no-daemon --stacktrace
+          gradle :app:assembleDebug --no-daemon --stacktrace -p app
           
       - name: Verify APK Output
         run: |

@@ -25,18 +25,12 @@ jobs:
           distribution: 'temurin'
           cache: gradle
           
-      - name: Verify Project Structure
-        run: |
-          echo "=== Root contents ==="
-          ls -la
-          echo "=== app/ contents ==="
-          ls -la app/
-          echo "=== gradle/wrapper/ contents ==="
-          ls -la gradle/wrapper/
-          
-      - name: Build Debug APK (using system gradle with no-search-upward)
-        run: |
-          gradle :app:assembleDebug --no-daemon --stacktrace --no-search-upward -p app
+      - name: Build Debug APK
+        uses: gradle/gradle-build-action@v2
+        with:
+          build-root-directory: .
+          gradle-version: '8.9'
+          arguments: :app:assembleDebug
           
       - name: Verify APK Output
         run: |

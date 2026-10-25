@@ -1,0 +1,57 @@
+name: Android APK Build
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          
+      - name: Set up JDK 17 (v5 - güncel ve stabilize)
+        uses: actions/setup-java@v5
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: gradle
+          
+      - name: Verify Project Structure
+        run: |
+          echo "=== Root contents ==="
+          ls -la
+          echo "=== app/ contents ==="
+          ls -la app/
+          echo "=== gradle/ contents ==="
+          ls -la gradle/
+          echo "=== gradlew exists? ==="
+          if [ -f "./gradlew" ]; then echo "YES at root"; elif [ -f "android/gradlew" ]; then echo "YES in android/"; else echo "NO gradlew found - will use plugin only"; fi
+          
+      - name: Grant execute permission for gradlew
+        run: |
+          if [ -f "./gradlew" ]; then
+            chmod +x ./gradlew
+          elif [ -f "android/gradlew" ]; then
+            chmod +x android/gradlew
+          else
+            echo "No gradlew found - will use gradle plugin without wrapper"
+          fi
+          
+      - name: Build with Gradle
+        uses: gradle/gradle-build-action@v2
+        with:
+          gradle-version: '8.4'
+          arguments: assembleDebug
+          
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: debug-apk
+          path: app/build/outputs/apk/debug/*.apk

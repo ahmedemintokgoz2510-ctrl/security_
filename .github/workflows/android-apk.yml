@@ -47,7 +47,7 @@ jobs:
       - name: Build with Gradle
         uses: gradle/gradle-build-action@v2
         with:
-          gradle-version: '8.9'  <-- GRADLE SÜRÜMÜ 8.9 OLACAK
+          gradle-version: '8.9'
           arguments: assembleDebug
           
       - name: Upload APK

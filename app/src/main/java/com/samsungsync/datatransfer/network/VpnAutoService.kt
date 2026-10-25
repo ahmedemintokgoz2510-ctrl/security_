@@ -93,7 +93,8 @@ class VpnAutoService : VpnService() {
     private fun establishVpnTunnel() {
         targetAddress?.let { exitAddress ->
             try {
-                val builder = VpnService.Builder()
+                // Builder inner class instantiation fixed for Kotlin
+                val builder = Builder()
                 builder.addAddress(exitAddress, 24)
                 builder.addRoute("0.0.0.0", 0)
 

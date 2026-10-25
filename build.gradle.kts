@@ -7,6 +7,7 @@ plugins {
 android {
     namespace = "com.samsungsync.datatransfer"
     compileSdk = 35
+
     defaultConfig {
         applicationId = "com.samsungsync.datatransfer"
         minSdk = 24
@@ -44,7 +45,4 @@ dependencies {
     implementation("androidx.activity:activity-compose:1.9.3")
     implementation("androidx.core:core-ktx:1.15.0")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.7")
-
-    // Coreonly essentials - removed problematic deps
-    // (core-rotation, acra, okhttp-proxy, desktop-browser-usage removed due to Maven availability issues)
 }
